@@ -1,0 +1,85 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+model User {
+  id    String @id @default(cuid())
+  email String @unique
+
+  username      String  @unique
+  password      String
+  emailVerified Boolean @default(false)
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  preferences UserPreferences[]
+  posts       Post[]
+}
+
+model UserPreferences {
+  id    String @id @default(cuid())
+  theme String @default("light")
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  avatar String @default("astro")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum AssetProvider {
+  LOCAL
+  AWS_S3
+  CLOUDINARY
+}
+
+model Asset {
+  id String @id @default(cuid())
+
+  url      String
+  provider AssetProvider
+  key     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   Post?   @relation(fields: [postId], references: [id])
+  postId String?
+}
+
+model Post {
+  id      String @id @default(cuid())
+  content String
+
+  parentId  String?
+  parent    Post?    @relation("replies", fields: [parentId], references: [id])
+  replies   Post[]   @relation("replies")
+  tags      String[]
+  latitude  String
+  longitude String
+  status    Status   @default(PENDING)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  attachments Asset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+}
+
+enum Status {
+  SOLVED
+  IN_PROGRESS
+  PENDING
+}

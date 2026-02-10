@@ -1,0 +1,144 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    restart: always
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: docker.api
+        fluentd-async: "true"
+    ports:
+      - "5400:5400"
+    env_file:
+      - ./.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
+  redis:
+    image: redis:alpine
+    command: redis-server --requirepass "${REDIS_PASSWORD}"
+    env_file:
+      - ./.env.production
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/var/lib/redis/data
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: docker.redis
+        fluentd-async: "true"
+    depends_on:
+      fluent-bit:
+        condition: service_started
+  postgres:
+    image: postgres:alpine
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./.env.production
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: docker.postgres
+        fluentd-async: "true"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      fluent-bit:
+        condition: service_started
+
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    env_file:
+      - ./.env.production
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD &&
+      mc mb --region $S3_REGION -p local/$S3_BUCKET || true &&
+      mc mb --region $S3_REGION -p local/posts || true &&
+      mc mb --region $S3_REGION -p local/loki || true &&
+      mc anonymous set download local/$S3_BUCKET &&
+      mc anonymous set download local/posts &&
+      mc stat local/loki
+      "
+    env_file:
+      - ./.env.production
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./metrics/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    depends_on:
+      minio-init:
+        condition: service_started
+  fluent-bit:
+    image: fluent/fluent-bit:latest
+    container_name: fluent-bit
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./metrics/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./metrics/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+    restart: always
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    depends_on:
+      loki:
+        condition: service_started
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./metrics/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      loki:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  loki_data:
+  grafana_data:
