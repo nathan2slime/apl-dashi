@@ -36,9 +36,7 @@ const main = async () => {
 
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  const docConfig = new DocumentBuilder()
-    .setTitle('Atani API Documentation')
-    .build();
+  const docConfig = new DocumentBuilder().setTitle('API Documentation').build();
 
   app.setGlobalPrefix('api');
 
