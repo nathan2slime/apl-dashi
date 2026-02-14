@@ -31,6 +31,34 @@ API backend construída com NestJS, Prisma, PostgreSQL, Redis e armazenamento de
 - `prisma/schema.prisma`: modelos do banco
 - `docker-compose.yaml`: infraestrutura local completa
 
+## Modelagem do Banco de Dados
+
+Fonte do schema Prisma: `prisma/schema.prisma`
+
+Entidades principais:
+
+- `User`: identidade da conta (`email`, `username`, `password`, `emailVerified`) e timestamps.
+- `UserPreferences`: preferências de perfil (`theme`, `avatar`) vinculadas por `userId`.
+- `Post`: entidade principal de domínio (`content`, `tags`, `latitude`, `longitude`, `status`) com suporte a respostas encadeadas via `parentId`.
+- `Asset`: metadados de arquivos enviados (`url`, `key`, `provider`) com vínculo opcional ao post por `postId`.
+
+Relacionamentos:
+
+- `User` 1:N `Post` (`authorId`)
+- `User` 1:N `UserPreferences` (`userId`)
+- `Post` 1:N `Asset` (`postId`)
+- Autorrelação em `Post` 1:N para respostas (`parentId` -> `id`)
+
+Enums:
+
+- `Status`: `SOLVED`, `IN_PROGRESS`, `PENDING`
+- `AssetProvider`: `LOCAL`, `AWS_S3`, `CLOUDINARY`
+
+Índices e restrições:
+
+- Únicos: `User.email`, `User.username`
+- Índice: `Post.parentId` (melhora consultas de threads/respostas)
+
 ## Variáveis de Ambiente
 
 Comece a partir de `.env.example`.

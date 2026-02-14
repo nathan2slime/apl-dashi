@@ -31,6 +31,34 @@ Backend API built with NestJS, Prisma, PostgreSQL, Redis, and S3-compatible obje
 - `prisma/schema.prisma`: database models
 - `docker-compose.yaml`: full local infrastructure
 
+## Database Modeling
+
+Prisma schema source: `prisma/schema.prisma`
+
+Main entities:
+
+- `User`: account identity (`email`, `username`, `password`, `emailVerified`) and timestamps.
+- `UserPreferences`: user profile preferences (`theme`, `avatar`) linked by `userId`.
+- `Post`: main domain entity (`content`, `tags`, `latitude`, `longitude`, `status`) with optional threaded replies using `parentId`.
+- `Asset`: uploaded file metadata (`url`, `key`, `provider`) optionally linked to a post via `postId`.
+
+Relationships:
+
+- `User` 1:N `Post` (`authorId`)
+- `User` 1:N `UserPreferences` (`userId`)
+- `Post` 1:N `Asset` (`postId`)
+- `Post` self-reference 1:N for replies (`parentId` -> `id`)
+
+Enums:
+
+- `Status`: `SOLVED`, `IN_PROGRESS`, `PENDING`
+- `AssetProvider`: `LOCAL`, `AWS_S3`, `CLOUDINARY`
+
+Indexes and constraints:
+
+- Unique: `User.email`, `User.username`
+- Index: `Post.parentId` (improves threaded/reply queries)
+
 ## Environment Variables
 
 Start from `.env.example`.
