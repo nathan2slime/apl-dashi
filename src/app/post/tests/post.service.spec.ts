@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { PrismaService } from '~/app/database/prisma.service';
+import { CreatePostDto, PaginatePostsDto } from '~/app/post/post.dto';
 import { PostService } from '~/app/post/post.service';
+import { Asset } from '~/generated/prisma/client';
 
 describe('PostService', () => {
   let service: PostService;
@@ -18,21 +21,22 @@ describe('PostService', () => {
     prisma.post.update.mockReset();
     prisma.post.findUnique.mockReset();
     prisma.post.findMany.mockReset();
-    service = new PostService(prisma as any);
+    service = new PostService(prisma as unknown as PrismaService);
   });
 
   it('should create post', async () => {
-    const payload = {
+    const payload: CreatePostDto = {
       content: 'hello',
+      attachments: [],
       tags: ['nestjs'],
-      parentId: null,
-      latitude: 1,
-      longitude: 2
+      parentId: 'parent-1',
+      latitude: '1',
+      longitude: '2'
     };
 
     prisma.post.create.mockResolvedValue({ id: 'p1' });
 
-    await service.create(payload as any, 'u1');
+    await service.create(payload, 'u1');
 
     expect(prisma.post.create).toHaveBeenCalledWith({
       data: {
@@ -48,8 +52,9 @@ describe('PostService', () => {
 
   it('should attach assets to post', async () => {
     prisma.post.update.mockResolvedValue({ id: 'p1', attachments: [] });
+    const assets = [{ id: 'a1' }, { id: 'a2' }] as unknown as Asset[];
 
-    await service.attachAssets('p1', [{ id: 'a1' }, { id: 'a2' }] as any);
+    await service.attachAssets('p1', assets);
 
     expect(prisma.post.update).toHaveBeenCalledWith({
       where: { id: 'p1' },
@@ -114,8 +119,9 @@ describe('PostService', () => {
 
   it('should paginate without cursor', async () => {
     prisma.post.findMany.mockResolvedValue([]);
+    const query = { limit: 5 } as PaginatePostsDto;
 
-    await service.paginate({ limit: 5 } as any);
+    await service.paginate(query);
 
     expect(prisma.post.findMany).toHaveBeenCalledWith({
       take: 5,
@@ -134,8 +140,9 @@ describe('PostService', () => {
 
   it('should paginate with cursor', async () => {
     prisma.post.findMany.mockResolvedValue([]);
+    const query = { limit: 10, cursor: 'p1' } as PaginatePostsDto;
 
-    await service.paginate({ limit: 10, cursor: 'p1' } as any);
+    await service.paginate(query);
 
     expect(prisma.post.findMany).toHaveBeenCalledWith({
       take: 10,

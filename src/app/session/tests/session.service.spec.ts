@@ -28,10 +28,7 @@ describe('SessionService', () => {
       get: vi.fn()
     } as unknown as RedisService;
 
-    service = new SessionService(
-      config as ConfigService<any>,
-      redisService as RedisService
-    );
+    service = new SessionService(config, redisService);
   });
 
   it('should generate session key', () => {
@@ -61,14 +58,20 @@ describe('SessionService', () => {
       expect.objectContaining({ id: 'session-id', userId: 'user-1' }),
       86400
     );
-    expect(redisService.sAdd).toHaveBeenCalledWith('user:session:user-1', 'session-id');
+    expect(redisService.sAdd).toHaveBeenCalledWith(
+      'user:session:user-1',
+      'session-id'
+    );
   });
 
   it('should expire session keys', async () => {
     await service.expire('session-id');
 
     expect(redisService.del).toHaveBeenNthCalledWith(1, 'session:session-id');
-    expect(redisService.del).toHaveBeenNthCalledWith(2, 'user:session:session-id');
+    expect(redisService.del).toHaveBeenNthCalledWith(
+      2,
+      'user:session:session-id'
+    );
   });
 
   it('should delete all user sessions', async () => {
@@ -83,7 +86,12 @@ describe('SessionService', () => {
   });
 
   it('should find session by id', async () => {
-    const session = { id: 's1', userId: 'u1', createdAt: new Date(), updatedAt: new Date() };
+    const session = {
+      id: 's1',
+      userId: 'u1',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
     vi.mocked(redisService.get).mockResolvedValue(session);
 
     const result = await service.findById('s1');

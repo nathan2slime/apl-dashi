@@ -1,7 +1,9 @@
 import { ConfigService } from '@nestjs/config';
+import { RedisClientType } from 'redis';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RedisService } from '~/app/database/redis.service';
+import { AppConfig } from '~/config';
 
 const createClient = vi.fn();
 
@@ -26,6 +28,13 @@ describe('RedisService', () => {
     exists: vi.fn(),
     expire: vi.fn()
   };
+  const setClient = (instance: RedisService) => {
+    (
+      instance as unknown as {
+        client: RedisClientType;
+      }
+    ).client = client as unknown as RedisClientType;
+  };
 
   beforeEach(() => {
     for (const fn of Object.values(client)) {
@@ -37,12 +46,12 @@ describe('RedisService', () => {
     createClient.mockReset();
     createClient.mockReturnValue(client);
 
-    const config = new ConfigService();
+    const config = new ConfigService<AppConfig>();
     config.set('REDIS_HOST', 'localhost');
     config.set('REDIS_PORT', 6379);
     config.set('REDIS_PASSWORD', 'secret');
 
-    service = new RedisService(config as ConfigService<any>);
+    service = new RedisService(config);
   });
 
   it('should initialize redis client on module init', async () => {
@@ -59,21 +68,21 @@ describe('RedisService', () => {
   });
 
   it('should check redis health', async () => {
-    (service as any).client = client;
+    setClient(service);
     client.ping.mockResolvedValue('PONG');
 
     await expect(service.check()).resolves.toBe(true);
   });
 
   it('should return false when check fails', async () => {
-    (service as any).client = client;
+    setClient(service);
     client.ping.mockRejectedValue(new Error('down'));
 
     await expect(service.check()).resolves.toBe(false);
   });
 
   it('should quit client on module destroy', async () => {
-    (service as any).client = client;
+    setClient(service);
     client.quit.mockResolvedValue('OK');
 
     await service.onModuleDestroy();
@@ -82,7 +91,7 @@ describe('RedisService', () => {
   });
 
   it('should set with ttl', async () => {
-    (service as any).client = client;
+    setClient(service);
 
     await service.set('k1', { a: 1 }, 60);
 
@@ -92,7 +101,7 @@ describe('RedisService', () => {
   });
 
   it('should set without ttl', async () => {
-    (service as any).client = client;
+    setClient(service);
 
     await service.set('k1', { a: 1 });
 
@@ -100,7 +109,7 @@ describe('RedisService', () => {
   });
 
   it('should get parsed json', async () => {
-    (service as any).client = client;
+    setClient(service);
     client.get.mockResolvedValue('{"a":1}');
 
     const result = await service.get('k1');
@@ -109,7 +118,7 @@ describe('RedisService', () => {
   });
 
   it('should return null when key does not exist', async () => {
-    (service as any).client = client;
+    setClient(service);
     client.get.mockResolvedValue(null);
 
     const result = await service.get('k1');
@@ -118,7 +127,7 @@ describe('RedisService', () => {
   });
 
   it('should clear set members', async () => {
-    (service as any).client = client;
+    setClient(service);
     client.sMembers.mockResolvedValue(['a', 'b']);
 
     await service.sClear('set:1');
@@ -128,7 +137,7 @@ describe('RedisService', () => {
   });
 
   it('should not remove when set is empty', async () => {
-    (service as any).client = client;
+    setClient(service);
     client.sMembers.mockResolvedValue([]);
 
     await service.sClear('set:1');
@@ -137,7 +146,7 @@ describe('RedisService', () => {
   });
 
   it('should return exists as boolean', async () => {
-    (service as any).client = client;
+    setClient(service);
     client.exists.mockResolvedValue(1);
 
     await expect(service.exists('k1')).resolves.toBe(true);

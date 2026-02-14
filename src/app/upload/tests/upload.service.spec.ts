@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AssetService } from '~/app/asset/asset.service';
 import { UploadService } from '~/app/upload/upload.service';
+import { AppConfig } from '~/config';
 import { AppBucket } from '~/config/storage';
+import { Asset } from '~/generated/prisma/client';
 import { AssetProvider } from '~/generated/prisma/enums';
 
 const createDriver = {
@@ -26,11 +28,11 @@ vi.mock('~/app/upload/upload.factory', () => ({
 
 describe('UploadService', () => {
   let service: UploadService;
-  let config: ConfigService;
+  let config: ConfigService<AppConfig>;
   let assetService: AssetService;
 
   beforeEach(() => {
-    config = new ConfigService();
+    config = new ConfigService<AppConfig>();
 
     assetService = {
       create: vi.fn(),
@@ -44,7 +46,7 @@ describe('UploadService', () => {
     vi.mocked(assetService.create).mockReset();
     vi.mocked(assetService.deleteByKey).mockReset();
 
-    service = new UploadService(config as ConfigService<any>, assetService);
+    service = new UploadService(config, assetService);
   });
 
   it('should upload file and create asset', async () => {
@@ -52,18 +54,18 @@ describe('UploadService', () => {
       url: 'https://cdn/file.jpg',
       key: 'file.jpg'
     });
-    vi.mocked(assetService.create).mockResolvedValue({ id: 'a1' } as any);
+    vi.mocked(assetService.create).mockResolvedValue({ id: 'a1' } as Asset);
 
     const result = await service.upload({
       file: { originalname: 'file.jpg' } as Express.Multer.File,
-      bucket: AppBucket.POST,
+      bucket: AppBucket.PostAttachments,
       provider: AssetProvider.AWS_S3
     });
 
     expect(createFactory).toHaveBeenCalledWith(
       AssetProvider.AWS_S3,
       config,
-      AppBucket.POST
+      AppBucket.PostAttachments
     );
     expect(createDriver.upload).toHaveBeenCalled();
     expect(assetService.create).toHaveBeenCalledWith({
@@ -80,24 +82,22 @@ describe('UploadService', () => {
     await expect(
       service.upload({
         file: {} as Express.Multer.File,
-        bucket: AppBucket.POST
+        bucket: AppBucket.PostAttachments
       })
     ).rejects.toThrowError('Internal Server Error');
   });
 
   it('should delete asset from db and provider', async () => {
-    vi.mocked(assetService.deleteByKey).mockResolvedValue({ count: 1 } as any);
+    vi.mocked(assetService.deleteByKey).mockResolvedValue({ count: 1 });
     deleteDriver.delete.mockResolvedValue(undefined);
+    const asset = { key: 'k1', provider: AssetProvider.AWS_S3 } as Asset;
 
-    await service.deleteByAsset(
-      { key: 'k1', provider: AssetProvider.AWS_S3 } as any,
-      AppBucket.POST
-    );
+    await service.deleteByAsset(asset, AppBucket.PostAttachments);
 
     expect(deleteFactory).toHaveBeenCalledWith(
       AssetProvider.AWS_S3,
       config,
-      AppBucket.POST
+      AppBucket.PostAttachments
     );
     expect(assetService.deleteByKey).toHaveBeenCalledWith('k1');
     expect(deleteDriver.delete).toHaveBeenCalledWith('k1');
@@ -108,8 +108,8 @@ describe('UploadService', () => {
 
     await expect(
       service.deleteByAsset(
-        { key: 'k1', provider: AssetProvider.AWS_S3 } as any,
-        AppBucket.POST
+        { key: 'k1', provider: AssetProvider.AWS_S3 } as Asset,
+        AppBucket.PostAttachments
       )
     ).rejects.toThrowError('Internal Server Error');
   });

@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { PrismaService } from '~/app/database/prisma.service';
 import { UserService } from '~/app/user/user.service';
 import { USER_NOT_FOUND_MESSAGE } from '~/config/errors';
 import { User } from '~/generated/prisma/client';
@@ -27,7 +28,7 @@ describe('UserService', () => {
   beforeEach(() => {
     prisma.user.findUnique.mockReset();
     prisma.user.create.mockReset();
-    service = new UserService(prisma as any);
+    service = new UserService(prisma as unknown as PrismaService);
   });
 
   it('should return user by id without password', async () => {
@@ -44,7 +45,7 @@ describe('UserService', () => {
       updatedAt: user.updatedAt,
       emailVerified: false
     });
-    expect((result as any).password).toBeUndefined();
+    expect(result).not.toHaveProperty('password');
   });
 
   it('should throw when user by id does not exist', async () => {
@@ -68,7 +69,7 @@ describe('UserService', () => {
     const result = await service.create(payload);
 
     expect(prisma.user.create).toHaveBeenCalledWith({ data: payload });
-    expect((result as any).password).toBeUndefined();
+    expect(result).not.toHaveProperty('password');
   });
 
   it('should get user by email', async () => {
@@ -76,7 +77,9 @@ describe('UserService', () => {
 
     const result = await service.getByEmail(user.email);
 
-    expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email: user.email } });
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { email: user.email }
+    });
     expect(result).toBe(user);
   });
 

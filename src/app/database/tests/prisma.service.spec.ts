@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AppConfig } from '~/config';
 
 const { prismaPg, MockPrismaClient } = vi.hoisted(() => {
   const prismaPgFn = vi.fn();
@@ -41,10 +42,10 @@ describe('PrismaService', () => {
     prismaPg.mockReset();
     prismaPg.mockReturnValue({ mocked: true });
 
-    const config = new ConfigService();
+    const config = new ConfigService<AppConfig>();
     config.set('DATABASE_URL', 'postgresql://localhost:5432/app');
 
-    service = new PrismaService(config as ConfigService<any>);
+    service = new PrismaService(config);
   });
 
   it('should build prisma adapter with database url', () => {
