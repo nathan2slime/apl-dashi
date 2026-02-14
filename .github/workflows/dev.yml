@@ -23,6 +23,39 @@ jobs:
                   node-version: ${{ matrix.node-version }}
             - run: pnpm install
             - run: pnpm lint
+    coverage:
+        runs-on: ubuntu-latest
+        env:
+            CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+        strategy:
+            matrix:
+                node-version: [22.x]
+
+        steps:
+            - uses: actions/checkout@v3
+            - uses: pnpm/action-setup@v4
+            - name: Use Node.js ${{ matrix.node-version }}
+              uses: actions/setup-node@v3
+              with:
+                  node-version: ${{ matrix.node-version }}
+            - run: pnpm install
+            - run: pnpm test:cov
+
+            - name: Upload coverage to Codecov (with token)
+              if: env.CODECOV_TOKEN != ''
+              uses: codecov/codecov-action@v5
+              with:
+                  token: ${{ env.CODECOV_TOKEN }}
+                  files: ./coverage/lcov.info
+                  fail_ci_if_error: true
+
+            - name: Upload coverage to Codecov (tokenless OSS)
+              if: env.CODECOV_TOKEN == ''
+              uses: codecov/codecov-action@v5
+              with:
+                  files: ./coverage/lcov.info
+                  fail_ci_if_error: false
     build:
         runs-on: ubuntu-latest
 
